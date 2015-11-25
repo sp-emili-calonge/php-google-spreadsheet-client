@@ -88,6 +88,38 @@ class Spreadsheet
         return new WorksheetFeed($res);
     }
 
+    public function getWorksheetCellFeeds(array $worksheets)
+    {
+        $urls = $this->getWorksheetCellsUrls($worksheets);
+        $cellsData = ServiceRequestFactory::getInstance()->getMulti($urls);
+        $cellFeeds = [];
+        foreach ($cellsData as $title => $cellData) {
+            $cellFeeds[$title] = new CellFeed($cellData);
+        }
+
+        return $cellFeeds;
+    }
+
+    /**
+     * @param Worksheet[] $worksheets
+     * @return array
+     * @throws Exception
+     */
+    public function getWorksheetCellsUrls(array $worksheets)
+    {
+        $urls = [];
+//        $res = ServiceRequestFactory::getInstance()->get($this->getWorksheetsFeedUrl());
+//        $worksheetFeed = new WorksheetFeed($res);
+//        foreach ($worksheetFeed as $workSheet) {
+//            $urls[$workSheet->getTitle()] = $workSheet->getCellFeedUrl();
+//        }
+        foreach ($worksheets as $title => $workSheet) {
+            $urls[$title] = $workSheet->getCellFeedUrl();
+        }
+
+        return $urls;
+    }
+
     /**
      * Add a new worksheet to this spreadsheet
      * 

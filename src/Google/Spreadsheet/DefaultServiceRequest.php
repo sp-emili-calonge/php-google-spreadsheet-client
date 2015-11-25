@@ -27,7 +27,7 @@ class DefaultServiceRequest implements ServiceRequestInterface
 {
     /**
      * Request object
-     * 
+     *
      * @var \Google\Spreadsheet\Request
      */
     protected $accessToken;
@@ -41,28 +41,28 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Request headers
-     * 
+     *
      * @var array
      */
     protected $headers = array();
 
     /**
      * Service url
-     * 
+     *
      * @var string
      */
     protected $serviceUrl = 'https://spreadsheets.google.com/';
 
     /**
      * User agent
-     * 
+     *
      * @var string
      */
     protected $userAgent = 'PHP Google Spreadsheet Api';
 
     /**
      * Initializes the service request object.
-     * 
+     *
      * @param \Google\Spreadsheet\Request $request
      */
     public function __construct($accessToken, $tokenType = 'OAuth')
@@ -73,17 +73,17 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Get request headers
-     * 
+     *
      * @return array
      */
     public function getHeaders()
     {
         return $this->headers;
     }
-    
+
     /**
-     * Set optional request headers. 
-     * 
+     * Set optional request headers.
+     *
      * @param array $headers associative array of key value pairs
      *
      * @return Google\Spreadsheet\DefaultServiceRequest
@@ -96,17 +96,17 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Get the user agent
-     * 
+     *
      * @return string
      */
     public function getUserAgent()
     {
         return $this->userAgent;
     }
-    
+
     /**
      * Set the user agent. It is a good ides to leave this as is.
-     * 
+     *
      * @param string $userAgent
      *
      * @return Google\Spreadsheet\DefaultServiceRequest
@@ -117,11 +117,18 @@ class DefaultServiceRequest implements ServiceRequestInterface
         return $this;
     }
 
+    public function getCurlRequest($url)
+    {
+        $ch = $this->initRequest($url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+        return $ch;
+    }
+
     /**
      * Perform a get request
-     * 
+     *
      * @param string $url
-     * 
+     *
      * @return string
      */
     public function get($url)
@@ -131,12 +138,51 @@ class DefaultServiceRequest implements ServiceRequestInterface
         return $this->execute($ch);
     }
 
+    public function getMulti($urls)
+    {
+        $start = microtime(true);
+        $mh = curl_multi_init();
+        $requests = [];
+        foreach ($urls as $title => $url) {
+            $ch = $this->initRequest($url);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+            curl_multi_add_handle($mh, $ch);
+            $requests[$title] = $ch;
+        }
+
+        do {
+            $mrc = curl_multi_exec($mh, $active);
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+        while ($active && $mrc == CURLM_OK) {
+            if (curl_multi_select($mh) != -1) {
+                do {
+                    $mrc = curl_multi_exec($mh, $active);
+                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+            }
+        }
+
+
+        $responses = [];
+        foreach ($requests as $title => $ch) {
+            curl_multi_remove_handle($mh, $ch);
+            $responses[$title] = curl_multi_getcontent($ch);
+        }
+
+        curl_multi_close($mh);
+        $time = microtime(true) - $start;
+        error_log("File: " . __FILE__ . PHP_EOL . "Line: " . __LINE__ . PHP_EOL . "X: " . var_export($time, true) . PHP_EOL, 3, '/tmp/error_log');
+
+
+        return $responses;
+    }
+
     /**
      * Perform a post request
-     * 
+     *
      * @param string $url
      * @param mixed  $postData
-     * 
+     *
      * @return string
      */
     public function post($url, $postData)
@@ -149,10 +195,10 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Perform a put request
-     * 
+     *
      * @param string $url
      * @param mixed  $postData
-     * 
+     *
      * @return string
      */
     public function put($url, $postData)
@@ -165,9 +211,9 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Perform a delete request
-     * 
+     *
      * @param string $url
-     * 
+     *
      * @return string
      */
     public function delete($url)
@@ -179,10 +225,10 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
     /**
      * Initialize the curl session
-     * 
-     * @param string $url           
+     *
+     * @param string $url
      * @param array  $requestHeaders
-     * 
+     *
      * @return resource
      */
     protected function initRequest($url, $requestHeaders = array())
@@ -214,18 +260,18 @@ class DefaultServiceRequest implements ServiceRequestInterface
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_USERAGENT, $this->getUserAgent());
-        return $ch;       
+        return $ch;
     }
 
     /**
      * Executes the api request.
-     * 
+     *
      * @return string the xml response
      *
      * @throws \Google\Spreadsheet\Exception If the was a problem with the request.
      *                                       Will throw an exception if the response
      *                                       code is 300 or greater
-     *                                       
+     *
      * @throws \Google\Spreadsheet\UnauthorizedException
      */
     protected function execute($ch)
